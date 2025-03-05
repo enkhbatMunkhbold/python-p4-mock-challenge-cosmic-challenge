@@ -25,24 +25,34 @@ class Planet(db.Model, SerializerMixin):
     distance_from_earth = db.Column(db.Integer)
     nearest_star = db.Column(db.String)
 
-    # Add relationship
+    missions = db.relationship('Mission', back_populates = 'planet', cascade='all, delete-orphan')
+    scientists = association_proxy('missions', 'scientist')
 
-    # Add serialization rules
+    serialize_rules = ('-missions',)
 
+    def __ref__(self):
+        return f'<Planet {self.id}: {self.name}>'
 
 class Scientist(db.Model, SerializerMixin):
     __tablename__ = 'scientists'
 
     id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String)
-    field_of_study = db.Column(db.String)
+    name = db.Column(db.String, nullable=False)
+    field_of_study = db.Column(db.String, nullable=False)
 
-    # Add relationship
+    missions = db.relationship('Mission', back_populates = 'scientist', cascade='all, delete-orphan')
+    planets = association_proxy('missions', 'planet')
 
-    # Add serialization rules
+    serialize_rules = ('-missions',)
 
-    # Add validation
+    @validates('name', 'field_of_study')
+    def validate_presence(self, key, value):
+        if not value:
+            raise ValueError(f'{key} must exist!')
+        return value
 
+    def __ref__(self):
+        return f'<Scientist {self.id}: {self.name}>'
 
 class Mission(db.Model, SerializerMixin):
     __tablename__ = 'missions'
@@ -50,11 +60,21 @@ class Mission(db.Model, SerializerMixin):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String)
 
-    # Add relationships
+    scientist_id = db.Column(db.Integer, db.ForeignKey('scientists.id'), nullable=False)
+    planet_id = db.Column(db.Integer, db.ForeignKey('planets.id'), nullable=False)
 
-    # Add serialization rules
+    planet = db.relationship('Planet', back_populates = 'missions')
+    scientist = db.relationship('Scientist', back_populates = 'missions')
 
-    # Add validation
+    serialize_rules = ('-planet.missions', '-scientist.missions',)
 
+    @validates('name', 'scientist_id', 'planet_id')
+    def validate_presence(self, key, value):
+        if not value:
+            raise ValueError(f'{key} must exist!')
+        return value
+
+    def __ref__(self):
+        return f'<Mission {self.id}: {self.name}>'
 
 # add any models you may need.
